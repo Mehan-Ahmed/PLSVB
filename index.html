@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta content="width=device-width, initial-scale=1" name="viewport"/>
+  <title>Zales Daily Check-in</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css" rel="stylesheet"/>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&display=swap" rel="stylesheet"/>
+  <style>
+    body {
+      font-family: 'Montserrat', sans-serif;
+      padding-top: 60px; /* Space for fixed header */
+    }
+    .loading {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: white;
+      z-index: 1000;
+      flex-direction: column;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 4px solid rgba(0, 0, 0, 0.1);
+      border-radius: 50%;
+      border-left-color: #000;
+      animation: spin 1s linear infinite;
+      margin-bottom: 15px;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    .loading-text {
+      font-size: 16px;
+      color: #555;
+    }
+    /* Modal styles */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1000;
+      justify-content: center;
+      align-items: center;
+    }
+    .modal-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 300px;
+      text-align: center;
+    }
+    .wallet-container {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .wallet-icon {
+      width: 24px;
+      height: 24px;
+      transition: all 0.3s ease;
+    }
+    .wallet-low { filter: grayscale(80%) opacity(0.7); }
+    .wallet-medium { filter: brightness(0.8); }
+    .wallet-high { filter: brightness(1.2); }
+    /* Bottom navigation */
+    .bottom-nav {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      box-shadow: 0 -2px 10px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-around;
+      padding: 10px 0;
+      z-index: 100;
+    }
+    .nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      font-size: 12px;
+      color: #666;
+    }
+    .nav-item.active {
+      color: #000;
+      font-weight: bold;
+    }
+    .nav-icon {
+      font-size: 20px;
+      margin-bottom: 4px;
+    }
+    /* Fixed header */
+    .fixed-header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      z-index: 90;
+      border-bottom: 1px solid #eee;
+      padding: 10px 15px;
+      box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    }
+    .content-area {
+      margin-top: 10px;
+      padding-bottom: 70px; /* Space for bottom nav */
+    }
+    /* Image loading */
+    .image-container {
+      position: relative;
+      min-height: 150px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .image-container img {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+    }
+    .image-container img.loaded {
+      opacity: 1;
+    }
+    /* Profile Image on Header */
+    #profile-pic-container {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #eee;
+    }
+    #profile-pic {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    /* User Info Modal */
+    #user-info-modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0,0,0,0.5);
+      z-index: 1001;
+      justify-content: center;
+      align-items: center;
+    }
+    #user-info-content {
+      background-color: white;
+      padding: 20px;
+      border-radius: 10px;
+      width: 80%;
+      max-width: 300px;
+      text-align: center;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+  </style>
+</head>
+<body class="bg-white text-black">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
+  <div id="loading" class="loading">
+    <div class="spinner"></div>
+    <div class="loading-text">Loading content...</div>
+  </div>
+
+  <div id="content" class="hidden">
+    <div class="fixed-header flex justify-between items-center">
+      <div id="profile-pic-container">
+        <img id="profile-pic" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile Picture"/>
+      </div>
+      <div class="font-extrabold text-2xl tracking-widest">
+        Z<span class="inline-block transform rotate-45">A</span>LES
+      </div>
+      <div class="flex items-center space-x-4">
+        <div class="wallet-container">
+          <img src="https://cdn-icons-png.flaticon.com/512/2169/2169864.png"
+               id="wallet-icon"
+               class="wallet-icon wallet-medium"
+               alt="Wallet"/>
+          <span id="balance" class="font-semibold">৳5,000</span>
+        </div>
+      </div>
+    </div>
+    
+    <div class="content-area px-4">
+      <div class="image-container mt-2">
+        <img id="main-image"
+             alt="Four coins on a wooden surface with text DAILY CHECK-IN in bold white uppercase letters"
+             src="https://storage.googleapis.com/a1aa/image/693c521c-3fbc-4bc0-9c98-ac75af9144c5.jpg"
+             loading="eager"/>
+      </div>
+      
+      <div class="my-6 rounded-lg bg-gray-100 p-5 shadow-lg">
+        <div class="flex justify-between mb-6 text-base font-semibold">
+          <span>Daily Check in</span>
+          <span id="day-counter">0/7Day</span>
+        </div>
+        
+        <div class="flex justify-between mb-4">
+          <div class="flex flex-col items-center space-y-1">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6 day-icon" data-day="1" loading="eager"/>
+            </div>
+            <span class="text-sm">1Day</span>
+          </div>
+          <div class="flex flex-col items-center space-y-1">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6 day-icon" data-day="2" loading="eager"/>
+            </div>
+            <span class="text-sm">2Day</span>
+          </div>
+          <div class="flex flex-col items-center space-y-1">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6 day-icon" data-day="3" loading="eager"/>
+            </div>
+            <span class="text-sm">3Day</span>
+          </div>
+          <div class="flex flex-col items-center space-y-1">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6 day-icon" data-day="4" loading="eager"/>
+            </div>
+            <span class="text-sm">4Day</span>
+          </div>
+        </div>
+        
+        <div class="flex justify-between mb-6">
+          <div class="flex flex-col items-center space-y-1">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6 day-icon" data-day="5" loading="eager"/>
+            </div>
+            <span class="text-sm">5Day</span>
+          </div>
+          <div class="flex flex-col items-center space-y-1">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6 day-icon" data-day="6" loading="eager"/>
+            </div>
+            <span class="text-sm">6Day</span>
+          </div>
+          <div class="flex flex-col items-center space-y-1">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6 day-icon" data-day="7" loading="eager"/>
+            </div>
+            <span class="text-sm">7Day</span>
+          </div>
+          <div class="flex flex-col items-center space-y-1 opacity-0">
+            <div class="bg-gray-300 rounded-full p-4">
+              <img src="https://cdn-icons-png.flaticon.com/512/10440/10440027.png" class="w-6 h-6" loading="eager"/>
+            </div>
+            <span class="text-sm">-</span>
+          </div>
+        </div>
+        
+        <button id="signin-btn" class="w-full bg-black text-white text-xl py-3 rounded-lg shadow-lg hover:opacity-90 transition-opacity" type="button">
+          Sign in
+        </button>
+        
+        <p class="mt-3 text-base font-normal">
+          <span class="font-bold">+৳9000</span> You can get Reward for signing in for
+        </p>
+      </div>
+    </div>
+    
+    <div id="confirmation-modal" class="modal">
+      <div class="modal-content">
+        <p class="mb-4">You've successfully claimed your daily reward!</p>
+        <button id="confirm-btn" class="w-full bg-black text-white py-2 rounded-lg">Confirm</button>
+      </div>
+    </div>
+    
+    <div id="user-info-modal" class="modal">
+      <div id="user-info-content">
+        <h3 id="user-name" class="font-bold text-lg mb-2"></h3>
+        <p id="user-tgid" class="text-sm text-gray-600 mb-4"></p>
+        <button id="close-user-info-modal" class="w-full bg-black text-white py-2 rounded-lg">Close</button>
+      </div>
+    </div>
+    
+    <div class="bottom-nav">
+      <div class="nav-item active">
+        <i class="fas fa-home nav-icon"></i>
+        <span>Home</span>
+      </div>
+      <div class="nav-item">
+        <i class="fas fa-tasks nav-icon"></i>
+        <span>Task</span>
+      </div>
+      <div class="nav-item">
+        <i class="fas fa-user-plus nav-icon"></i>
+        <span>Refer</span>
+      </div>
+      <div class="nav-item">
+        <i class="fas fa-ad nav-icon"></i>
+        <span>Ads</span>
+      </div>
+      <div class="nav-item">
+        <i class="fas fa-coins nav-icon"></i>
+        <span>Earn</span>
+      </div>
+      <div class="nav-item">
+        <i class="fas fa-wallet nav-icon"></i>
+        <span>Withdrawal</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Wait for all images to load
+    function waitForImages() {
+      const images = document.querySelectorAll('img');
+      let loadedCount = 0;
+      const totalImages = images.length;
+      
+      // Check if images are already loaded
+      images.forEach(img => {
+        if (img.complete) {
+          img.classList.add('loaded');
+          loadedCount++;
+          checkAllLoaded();
+        } else {
+          img.addEventListener('load', function() {
+            this.classList.add('loaded');
+            loadedCount++;
+            checkAllLoaded();
+          });
+          img.addEventListener('error', function() {
+            // If image fails to load, count it anyway
+            loadedCount++;
+            checkAllLoaded();
+          });
+        }
+      });
+      
+      // If no images, hide loader immediately
+      if (totalImages === 0) {
+        hideLoader();
+      }
+      
+      function checkAllLoaded() {
+        if (loadedCount >= totalImages) {
+          hideLoader();
+        }
+      }
+    }
+    
+    function hideLoader() {
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('content').classList.remove('hidden');
+    }
+    
+    document.addEventListener('DOMContentLoaded', function() {
+      waitForImages();
+      
+      // Set timeout as fallback (5 seconds)
+      setTimeout(hideLoader, 5000);
+      
+      // Initialize Telegram Web App
+      if (window.Telegram && window.Telegram.WebApp) {
+        const user = window.Telegram.WebApp.initDataUnsafe.user;
+        const profilePic = document.getElementById('profile-pic');
+        const profilePicContainer = document.getElementById('profile-pic-container');
+        const userInfoModal = document.getElementById('user-info-modal');
+        const userNameElement = document.getElementById('user-name');
+        const userTgidElement = document.getElementById('user-tgid');
+        const closeUserInfoModalBtn = document.getElementById('close-user-info-modal');
+
+        if (user) {
+          // You might need to fetch the profile photo from Telegram's API, which is not directly available via initData.
+          // For this example, we'll use a placeholder or a default icon.
+          // You can use a service or your bot to fetch the user's photo and update this src.
+          // For now, the default src is used. If Telegram provides a photo URL in initDataUnsafe in the future, you can use it here.
+          
+          profilePicContainer.addEventListener('click', function() {
+            const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
+            userNameElement.textContent = fullName || 'No Name';
+            userTgidElement.textContent = `TG ID: ${user.id}`;
+            userInfoModal.style.display = 'flex';
+          });
+
+          closeUserInfoModalBtn.addEventListener('click', function() {
+            userInfoModal.style.display = 'none';
+          });
+          
+          userInfoModal.addEventListener('click', function(e) {
+            if (e.target.id === 'user-info-modal') {
+              userInfoModal.style.display = 'none';
+            }
+          });
+        }
+      }
+      
+      // Update wallet appearance based on balance
+      function updateWalletAppearance() {
+        const balanceText = document.getElementById('balance').textContent;
+        const balance = parseInt(balanceText.replace(/[^\d]/g, ''));
+        const walletIcon = document.getElementById('wallet-icon');
+        
+        // Remove all classes first
+        walletIcon.classList.remove('wallet-low', 'wallet-medium', 'wallet-high');
+        
+        // Add appropriate class based on balance
+        if (balance < 3000) {
+          walletIcon.classList.add('wallet-low');
+        } else if (balance < 7000) {
+          walletIcon.classList.add('wallet-medium');
+        } else {
+          walletIcon.classList.add('wallet-high');
+        }
+      }
+      
+      // Bottom navigation click handler
+      document.querySelectorAll('.nav-item').forEach(item => {
+        item.addEventListener('click', function() {
+          document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
+          this.classList.add('active');
+        });
+      });
+      
+      // Initial wallet update
+      updateWalletAppearance();
+      
+      // Sign in button click handler
+      document.getElementById('signin-btn').addEventListener('click', function() {
+        // Show confirmation modal
+        document.getElementById('confirmation-modal').style.display = 'flex';
+      });
+      
+      // Confirm button click handler
+      document.getElementById('confirm-btn').addEventListener('click', function() {
+        // Hide modal
+        document.getElementById('confirmation-modal').style.display = 'none';
+        
+        // Get current day (for demo, we'll just use day 1)
+        const currentDay = 1;
+        const claimedIconUrl = 'https://cdn-icons-png.flaticon.com/512/3076/3076626.png';
+        
+        // Update the icon for the current day
+        const dayIcon = document.querySelector(`.day-icon[data-day="${currentDay}"]`);
+        if (dayIcon) {
+          dayIcon.src = claimedIconUrl;
+          dayIcon.parentElement.classList.remove('bg-gray-300');
+          dayIcon.parentElement.classList.add('bg-green-100');
+        }
+        
+        // Update day counter
+        document.getElementById('day-counter').textContent = `${currentDay}/7Day`;
+        
+        // Update balance (add 9000)
+        const balanceElement = document.getElementById('balance');
+        const currentBalance = parseInt(balanceElement.textContent.replace(/[^\d]/g, ''));
+        balanceElement.textContent = `৳${(currentBalance + 9000).toLocaleString()}`;
+        
+        // Update wallet appearance
+        updateWalletAppearance();
+        
+        // Disable sign in button
+        document.getElementById('signin-btn').disabled = true;
+        document.getElementById('signin-btn').classList.add('opacity-50');
+        document.getElementById('signin-btn').textContent = 'Signed In';
+      });
+    });
+  </script>
+</body>
+</html>
