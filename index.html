@@ -115,6 +115,30 @@
       border-bottom: 1px solid #eee;
       padding: 10px 15px;
       box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .header-left {
+        display: flex;
+        align-items: center;
+        gap: 15px;
+    }
+    #profile-pic-container {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      overflow: hidden;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: #eee;
+    }
+    #profile-pic {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
     }
     .content-area {
       margin-top: 10px;
@@ -140,23 +164,6 @@
     }
     .image-container img.loaded {
       opacity: 1;
-    }
-    /* Profile Image on Header */
-    #profile-pic-container {
-      width: 40px;
-      height: 40px;
-      border-radius: 50%;
-      overflow: hidden;
-      cursor: pointer;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background-color: #eee;
-    }
-    #profile-pic {
-      width: 100%;
-      height: 100%;
-      object-fit: cover;
     }
     /* User Info Modal */
     #user-info-modal {
@@ -191,12 +198,14 @@
   </div>
 
   <div id="content" class="hidden">
-    <div class="fixed-header flex justify-between items-center">
-      <div id="profile-pic-container">
-        <img id="profile-pic" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile Picture"/>
-      </div>
-      <div class="font-extrabold text-2xl tracking-widest">
-        Z<span class="inline-block transform rotate-45">A</span>LES
+    <div class="fixed-header">
+      <div class="header-left">
+        <div id="profile-pic-container">
+          <img id="profile-pic" src="https://cdn-icons-png.flaticon.com/512/149/149071.png" alt="Profile Picture"/>
+        </div>
+        <div class="font-extrabold text-2xl tracking-widest">
+          Z<span class="inline-block transform rotate-45">A</span>LES
+        </div>
       </div>
       <div class="flex items-center space-x-4">
         <div class="wallet-container">
@@ -331,13 +340,11 @@
   </div>
 
   <script>
-    // Wait for all images to load
     function waitForImages() {
       const images = document.querySelectorAll('img');
       let loadedCount = 0;
       const totalImages = images.length;
       
-      // Check if images are already loaded
       images.forEach(img => {
         if (img.complete) {
           img.classList.add('loaded');
@@ -350,14 +357,12 @@
             checkAllLoaded();
           });
           img.addEventListener('error', function() {
-            // If image fails to load, count it anyway
             loadedCount++;
             checkAllLoaded();
           });
         }
       });
       
-      // If no images, hide loader immediately
       if (totalImages === 0) {
         hideLoader();
       }
@@ -376,11 +381,8 @@
     
     document.addEventListener('DOMContentLoaded', function() {
       waitForImages();
-      
-      // Set timeout as fallback (5 seconds)
       setTimeout(hideLoader, 5000);
       
-      // Initialize Telegram Web App
       if (window.Telegram && window.Telegram.WebApp) {
         const user = window.Telegram.WebApp.initDataUnsafe.user;
         const profilePic = document.getElementById('profile-pic');
@@ -391,13 +393,20 @@
         const closeUserInfoModalBtn = document.getElementById('close-user-info-modal');
 
         if (user) {
-          // You might need to fetch the profile photo from Telegram's API, which is not directly available via initData.
-          // For this example, we'll use a placeholder or a default icon.
-          // You can use a service or your bot to fetch the user's photo and update this src.
-          // For now, the default src is used. If Telegram provides a photo URL in initDataUnsafe in the future, you can use it here.
+          // Check if a photo URL is available from Telegram's API
+          // As a fallback, we'll use a placeholder.
+          // Note: Telegram's Web App API doesn't provide a direct photo URL.
+          // This requires a backend to fetch using the Bot API.
+          // This is a simulated, client-side approach for demonstration.
+          if (user.photo_url) {
+            profilePic.src = user.photo_url;
+          } else {
+            // Placeholder: Use a generic icon or a default profile picture.
+            profilePic.src = 'https://cdn-icons-png.flaticon.com/512/149/149071.png';
+          }
           
           profilePicContainer.addEventListener('click', function() {
-            const fullName = `${user.first_name} ${user.last_name || ''}`.trim();
+            const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim();
             userNameElement.textContent = fullName || 'No Name';
             userTgidElement.textContent = `TG ID: ${user.id}`;
             userInfoModal.style.display = 'flex';
@@ -415,16 +424,13 @@
         }
       }
       
-      // Update wallet appearance based on balance
       function updateWalletAppearance() {
         const balanceText = document.getElementById('balance').textContent;
         const balance = parseInt(balanceText.replace(/[^\d]/g, ''));
         const walletIcon = document.getElementById('wallet-icon');
         
-        // Remove all classes first
         walletIcon.classList.remove('wallet-low', 'wallet-medium', 'wallet-high');
         
-        // Add appropriate class based on balance
         if (balance < 3000) {
           walletIcon.classList.add('wallet-low');
         } else if (balance < 7000) {
@@ -434,7 +440,6 @@
         }
       }
       
-      // Bottom navigation click handler
       document.querySelectorAll('.nav-item').forEach(item => {
         item.addEventListener('click', function() {
           document.querySelectorAll('.nav-item').forEach(i => i.classList.remove('active'));
@@ -442,25 +447,18 @@
         });
       });
       
-      // Initial wallet update
       updateWalletAppearance();
       
-      // Sign in button click handler
       document.getElementById('signin-btn').addEventListener('click', function() {
-        // Show confirmation modal
         document.getElementById('confirmation-modal').style.display = 'flex';
       });
       
-      // Confirm button click handler
       document.getElementById('confirm-btn').addEventListener('click', function() {
-        // Hide modal
         document.getElementById('confirmation-modal').style.display = 'none';
         
-        // Get current day (for demo, we'll just use day 1)
         const currentDay = 1;
         const claimedIconUrl = 'https://cdn-icons-png.flaticon.com/512/3076/3076626.png';
         
-        // Update the icon for the current day
         const dayIcon = document.querySelector(`.day-icon[data-day="${currentDay}"]`);
         if (dayIcon) {
           dayIcon.src = claimedIconUrl;
@@ -468,18 +466,14 @@
           dayIcon.parentElement.classList.add('bg-green-100');
         }
         
-        // Update day counter
         document.getElementById('day-counter').textContent = `${currentDay}/7Day`;
         
-        // Update balance (add 9000)
         const balanceElement = document.getElementById('balance');
         const currentBalance = parseInt(balanceElement.textContent.replace(/[^\d]/g, ''));
         balanceElement.textContent = `৳${(currentBalance + 9000).toLocaleString()}`;
         
-        // Update wallet appearance
         updateWalletAppearance();
         
-        // Disable sign in button
         document.getElementById('signin-btn').disabled = true;
         document.getElementById('signin-btn').classList.add('opacity-50');
         document.getElementById('signin-btn').textContent = 'Signed In';
@@ -487,4 +481,4 @@
     });
   </script>
 </body>
-</html>
+  </html>
